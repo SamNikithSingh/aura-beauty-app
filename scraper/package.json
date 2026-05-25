@@ -1,0 +1,27 @@
+{
+  "name": "aura-beauty-scraper",
+  "version": "1.0.0",
+  "description": "Scheduled product offer scraper for Aura Beauty",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "scrape": "tsx src/index.ts",
+    "scrape:test": "tsx src/index.ts --dry-run",
+    "scheduler": "tsx src/scheduler.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "puppeteer": "^23.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
