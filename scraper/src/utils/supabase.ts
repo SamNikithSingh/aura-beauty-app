@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Product } from "../types.js";
+import ws from "ws";
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -9,7 +10,14 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 // Service role or Anon client depending on what's available
-export const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Pass `ws` as the WebSocket transport for Node.js < 22 compatibility (required on GitHub Actions Node 20)
+export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  global: {
+    fetch: fetch,
+    // @ts-ignore - ws is needed for Node.js < 22 which lacks native WebSocket support
+    WebSocket: ws,
+  },
+});
 
 /**
  * Fetch all products from the Supabase DB
