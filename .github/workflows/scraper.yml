@@ -3,7 +3,7 @@ name: Aura Price Scraper Automation
 on:
   schedule:
     # Runs 3 times a day: every 8 hours (00:00, 08:00, 16:00 UTC)
-  - cron: '*/5 * * * *'
+  - cron: "0 */6 * * *"
   workflow_dispatch:
     # Allows manual trigger from GitHub UI
 
