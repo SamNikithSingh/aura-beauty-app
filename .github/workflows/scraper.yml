@@ -22,14 +22,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: './scraper/package-lock.json'
 
-      - name: Install System Dependencies for Puppeteer
-        run: |
-          sudo apt-get update
-          sudo apt-get install -yq \
-            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-            libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
-            libxfixes3 libxrandr2 libgbm1 libasound2
-
       - name: Install Scraper Dependencies
         run: |
           cd scraper
@@ -41,10 +33,12 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_ANON_KEY }}
+          # Tell Puppeteer to use its bundled Chromium (not system Chrome)
+          PUPPETEER_EXECUTABLE_PATH: ''
         run: |
           cd scraper
           npm run scrape 2>&1 | tee scraper.log
-          
+
       - name: Upload Scraper Logs
         if: always()
         uses: actions/upload-artifact@v4
