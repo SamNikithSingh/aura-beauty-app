@@ -30,6 +30,28 @@ const STORE_COLORS: Record<string, string> = {
   "Flipkart": "#2874F0",
 };
 
+const formatTimeAgo = (isoString?: string | null) => {
+  if (!isoString) return "Updated just now";
+  try {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) {
+      return `Updated ${diffMins <= 0 ? 1 : diffMins}m ago`;
+    } else if (diffHours < 24) {
+      return `Updated ${diffHours}h ago`;
+    } else {
+      return `Updated ${diffDays}d ago`;
+    }
+  } catch {
+    return "Updated just now";
+  }
+};
+
 function OfferCard({ offer }: { offer: ProductOffer }) {
   const storeColor = STORE_COLORS[offer.storeName] || "#6B6880";
   const isRealUrl = offer.productUrl && offer.productUrl !== "#" && offer.productUrl.startsWith("http");
@@ -91,9 +113,12 @@ function OfferCard({ offer }: { offer: ProductOffer }) {
             </span>
           )}
         </div>
-        {offer.discountPercent > 0 && (
-          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#16A34A", fontWeight: 500 }}>
-            {offer.discountPercent.toFixed(0)}% off
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, color: "#A9A4C0", marginTop: 2 }}>
+          {formatTimeAgo(offer.updatedAt)}
+        </p>
+        {offer.originalPrice !== null && offer.currentPrice !== null && offer.originalPrice > offer.currentPrice && (
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#16A34A", fontWeight: 600, marginTop: 2 }}>
+            Save ₹{(offer.originalPrice - offer.currentPrice).toFixed(0)}
           </p>
         )}
       </div>
@@ -117,7 +142,7 @@ function OfferCard({ offer }: { offer: ProductOffer }) {
         )}
       </div>
 
-      <ExternalLink size={13} color="#C5C2D4" className="flex-shrink-0" />
+      <ExternalLink size={13} color="#C5C2D4" className="flex-shrink-0 ml-2" />
     </motion.div>
   );
 }
@@ -153,28 +178,6 @@ function ProductBottomSheet({
   if (!product) return null;
 
   const matchScore = product.skinTypes.some(t => t.toLowerCase() === profile?.skinType?.toLowerCase()) ? 95 : 85;
-
-  const formatTimeAgo = (isoString?: string | null) => {
-    if (!isoString) return "Updated just now";
-    try {
-      const date = new Date(isoString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / (1000 * 60));
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-      if (diffMins < 60) {
-        return `Updated ${diffMins <= 0 ? 1 : diffMins}m ago`;
-      } else if (diffHours < 24) {
-        return `Updated ${diffHours}h ago`;
-      } else {
-        return `Updated ${diffDays}d ago`;
-      }
-    } catch {
-      return "Updated just now";
-    }
-  };
 
   return (
     <Drawer.Root open={open} onOpenChange={(o) => !o && onClose()} shouldScaleBackground>
@@ -393,7 +396,9 @@ export function ProductsScreen() {
   const { recommendedForYou, recommendations } = useRecommendations(products, profile);
 
   const filteredAndSortedProducts = useMemo(() => {
-    let result = activeCategory === "All" ? products : products.filter(p => p.category === activeCategory);
+    let result = activeCategory === "All" 
+      ? products 
+      : products.filter(p => p.category?.toLowerCase().trim() === activeCategory.toLowerCase().trim());
 
     // Sort logic
     if (activeSort === "Best Match") {
@@ -539,6 +544,24 @@ export function ProductsScreen() {
           {filteredAndSortedProducts.map((product, i) => {
             const isMatch = recommendations.find(r => r.product.id === product.id)?.score >= 50;
             
+            // Calculate best deal and savings for product grid card
+            const validPrices = [
+              { store: "Amazon", price: product.amazonPrice },
+              { store: "Nykaa", price: product.nykaaPrice },
+              { store: "Official", price: product.officialPrice }
+            ].filter(p => p.price !== null && p.price !== undefined) as { store: string, price: number }[];
+            
+            validPrices.sort((a, b) => a.price - b.price);
+            
+            const bestStore = validPrices.length > 0 ? validPrices[0] : null;
+            let savings = null;
+            if (validPrices.length > 1) {
+              const highestPrice = Math.max(...validPrices.map(p => p.price));
+              if (highestPrice > validPrices[0].price) {
+                savings = highestPrice - validPrices[0].price;
+              }
+            }
+
             return (
               <motion.div
                 key={product.id}
@@ -547,27 +570,35 @@ export function ProductsScreen() {
                 transition={{ delay: i * 0.05, duration: 0.4 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setSelectedProduct(product)}
-                className="rounded-3xl overflow-hidden cursor-pointer relative"
+                className="rounded-3xl overflow-hidden cursor-pointer relative flex flex-col"
                 style={{
                   background: "#FFFFFF",
                   border: "1.5px solid rgba(123, 63, 196, 0.06)",
                   boxShadow: "0 8px 24px rgba(0,0,0,0.04)",
+                  height: "100%",
                 }}
               >
                 {/* Product image */}
-                <div className="relative" style={{ height: 160 }}>
+                <div className="relative flex-shrink-0" style={{ height: 160 }}>
                   <ImageWithFallback src={product.image} alt={product.name} className="w-full h-full object-cover" />
                   
                   {isMatch && (
-                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-lg flex items-center gap-1" style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(4px)" }}>
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-lg flex items-center gap-1" style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(4px)", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
                        <Zap size={10} color="#7B3FC4" fill="#7B3FC4" />
                        <span style={{ fontSize: 9, fontWeight: 800, color: "#1A1040" }}>MATCH</span>
                     </div>
                   )}
 
-                  {product.discount && (
-                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg" style={{ background: "#EF4444" }}>
+                  {product.discount && !savings && (
+                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg" style={{ background: "#EF4444", boxShadow: "0 2px 8px rgba(239, 68, 68, 0.3)" }}>
                       <span style={{ fontSize: 9, fontWeight: 800, color: "white" }}>{product.discount}</span>
+                    </div>
+                  )}
+
+                  {savings && (
+                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg flex items-center gap-1" style={{ background: "#16A34A", boxShadow: "0 2px 8px rgba(22, 163, 74, 0.3)" }}>
+                      <Tag size={9} color="white" />
+                      <span style={{ fontSize: 9, fontWeight: 800, color: "white" }}>Save ₹{savings.toFixed(0)}</span>
                     </div>
                   )}
 
@@ -582,18 +613,27 @@ export function ProductsScreen() {
                 </div>
 
                 {/* Info */}
-                <div className="p-4">
+                <div className="p-4 flex flex-col flex-1">
                   <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, color: "#7B3FC4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{product.brand}</p>
                   <p style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 13, color: "#1A1040", lineHeight: 1.3, marginBottom: 8, height: 34, overflow: "hidden" }}>{product.name}</p>
 
-                  <div className="flex items-center justify-between mt-auto">
-                    <div>
+                  <div className="flex flex-col justify-end mt-auto gap-2">
+                    {bestStore && (
+                      <div className="flex items-center gap-1">
+                        <Flame size={12} color="#D97706" />
+                        <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, fontWeight: 600, color: "#D97706" }}>
+                          Best deal on {bestStore.store}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between">
                       <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 800, color: "#1A1040" }}>
                         {product.price || "Check latest price"}
                       </span>
-                    </div>
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #7B3FC4, #5421B5)", boxShadow: "0 4px 12px rgba(123, 63, 196, 0.3)" }}>
-                      <ShoppingCart size={14} color="white" />
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #7B3FC4, #5421B5)", boxShadow: "0 4px 12px rgba(123, 63, 196, 0.3)" }}>
+                        <ShoppingCart size={14} color="white" />
+                      </div>
                     </div>
                   </div>
                 </div>
